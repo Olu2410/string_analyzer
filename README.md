@@ -15,7 +15,7 @@ No Database Required: In-memory storage for zero-dependency setup
 
 
 Installation
-git clone <repository-url>
+git clone https://github.com/Olu2410/string_analyzer.git
 cd string-analyzer
 
 
