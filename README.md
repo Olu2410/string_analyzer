@@ -28,8 +28,8 @@ python run.py
 
 API Endpoints
 1. Analyze a String
-POST /strings   ----- curl -X POST "http://localhost:8000/strings" \
-                            -H "Content-Type: application/json" \
+POST /strings   ----- curl -X POST "http://localhost:8000/strings" 
+                            -H "Content-Type: application/json" 
                             -d '{"value": "hello world"}'
 
 2. Get String Analysis
