@@ -5,60 +5,48 @@ import re
 from datetime import datetime
 import hashlib
 
+
+
 app = FastAPI(title="String Analyzer Service", version="1.0.0")
 
 # In-memory storage
 storage = {}
 
-# def analyze_string(text: str) -> Dict[str, any]:
-#     """Analyze a string and compute all required properties"""
-#     if not isinstance(text, str):
-#         raise ValueError("Input must be a string")
-    
-#     # Remove extra whitespace but preserve original for analysis
-#     cleaned_text = text.strip()
-    
-#     # Compute properties
-#     length = len(cleaned_text)
-    
-#     # Case-insensitive palindrome check (ignore spaces and special chars)
-#     cleaned_for_palindrome = re.sub(r'[^a-zA-Z0-9]', '', cleaned_text.lower())
-#     is_palindrome = cleaned_for_palindrome == cleaned_for_palindrome[::-1] if cleaned_for_palindrome else True
-    
-#     # Unique characters count
-#     unique_characters = len(set(cleaned_text))
-    
-#     # Word count (split by whitespace)
-#     word_count = len(cleaned_text.split())
-    
-#     # SHA256 hash
-#     sha256_hash = hashlib.sha256(cleaned_text.encode()).hexdigest()
-    
-#     # Character frequency map
-#     character_frequency_map = {}
-#     for char in cleaned_text:
-#         character_frequency_map[char] = character_frequency_map.get(char, 0) + 1
+def analyze_string(text: str) -> Dict[str, Any]:
+    """
+    Analyze a string and compute the following:
+    - length: number of characters
+    - is_palindrome: case-insensitive check ignoring spaces/special chars
+    - unique_characters: count of distinct characters
+    - word_count: words separated by whitespace
+    - sha256_hash: hash for unique identification
+    - character_frequency_map: dict mapping each character to its count
+    """
+    if not isinstance(text, str):
+        raise ValueError("Input must be a string")
 
-def analyze_string(text: str) -> Dict[str, any]:
-    # length
-    length = len(text)
-    
-    # is_palindrome - case-insensitive
-    cleaned_for_palindrome = re.sub(r'[^a-zA-Z0-9]', '', text.lower())
-    is_palindrome = cleaned_for_palindrome == cleaned_for_palindrome[::-1]
-    
-    # unique_characters
-    unique_characters = len(set(text))
-    
-    # word_count
-    word_count = len(text.split())
-    
-    # sha256_hash
-    sha256_hash = hashlib.sha256(text.encode()).hexdigest()
-    
-    # character_frequency_map
+    # Remove leading/trailing whitespace but keep internal spaces
+    cleaned_text = text.strip()
+
+    # Compute properties
+    length = len(cleaned_text)
+
+    # Palindrome check (case-insensitive, ignore non-alphanumeric)
+    cleaned_for_palindrome = re.sub(r'[^a-zA-Z0-9]', '', cleaned_text.lower())
+    is_palindrome = cleaned_for_palindrome == cleaned_for_palindrome[::-1] if cleaned_for_palindrome else False
+
+    # Unique characters
+    unique_characters = len(set(cleaned_text))
+
+    # Word count (split by any whitespace)
+    word_count = len(cleaned_text.split())
+
+    # SHA-256 hash
+    sha256_hash = hashlib.sha256(cleaned_text.encode("utf-8")).hexdigest()
+
+    # Character frequency map
     character_frequency_map = {}
-    for char in text:
+    for char in cleaned_text:
         character_frequency_map[char] = character_frequency_map.get(char, 0) + 1
 
     return {
@@ -67,8 +55,9 @@ def analyze_string(text: str) -> Dict[str, any]:
         "unique_characters": unique_characters,
         "word_count": word_count,
         "sha256_hash": sha256_hash,
-        "character_frequency_map": character_frequency_map
+        "character_frequency_map": character_frequency_map,
     }
+
 
 
 @app.post("/strings", status_code=status.HTTP_201_CREATED)
@@ -135,61 +124,6 @@ async def get_string(string_value: str):
     
     return storage[string_value]
 
-
-# @app.get("/strings")
-# async def get_all_strings(
-#     is_palindrome: Optional[bool] = Query(None, description="Filter by palindrome status"),
-#     min_length: Optional[int] = Query(None, ge=0, description="Minimum string length"),
-#     max_length: Optional[int] = Query(None, ge=0, description="Maximum string length"),
-#     word_count: Optional[int] = Query(None, ge=0, description="Exact word count"),
-#     contains_character: Optional[str] = Query(None, max_length=1, description="Single character to search for")
-# ):
-#     """
-#     Get all strings with optional filtering
-#     """
-#     filters = {}
-#     if is_palindrome is not None:
-#         filters['is_palindrome'] = is_palindrome
-#     if min_length is not None:
-#         filters['min_length'] = min_length
-#     if max_length is not None:
-#         filters['max_length'] = max_length
-#     if word_count is not None:
-#         filters['word_count'] = word_count
-#     if contains_character is not None:
-#         filters['contains_character'] = contains_character
-    
-#     filtered_strings = []
-    
-#     for analysis in storage.values():
-#         matches = True
-#         props = analysis["properties"]
-        
-#         if 'is_palindrome' in filters and props['is_palindrome'] != filters['is_palindrome']:
-#             matches = False
-            
-#         if 'min_length' in filters and props['length'] < filters['min_length']:
-#             matches = False
-            
-#         if 'max_length' in filters and props['length'] > filters['max_length']:
-#             matches = False
-            
-#         if 'word_count' in filters and props['word_count'] != filters['word_count']:
-#             matches = False
-            
-#         if 'contains_character' in filters:
-#             char = filters['contains_character']
-#             if char not in analysis["value"]:
-#                 matches = False
-        
-#         if matches:
-#             filtered_strings.append(analysis)
-    
-#     return {
-#         "data": filtered_strings,
-#         "count": len(filtered_strings),
-#         "filters_applied": filters
-#     }
 
 
 @app.get("/strings", status_code=status.HTTP_200_OK)
