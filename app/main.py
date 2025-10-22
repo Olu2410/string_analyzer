@@ -10,35 +10,57 @@ app = FastAPI(title="String Analyzer Service", version="1.0.0")
 # In-memory storage
 storage = {}
 
+# def analyze_string(text: str) -> Dict[str, any]:
+#     """Analyze a string and compute all required properties"""
+#     if not isinstance(text, str):
+#         raise ValueError("Input must be a string")
+    
+#     # Remove extra whitespace but preserve original for analysis
+#     cleaned_text = text.strip()
+    
+#     # Compute properties
+#     length = len(cleaned_text)
+    
+#     # Case-insensitive palindrome check (ignore spaces and special chars)
+#     cleaned_for_palindrome = re.sub(r'[^a-zA-Z0-9]', '', cleaned_text.lower())
+#     is_palindrome = cleaned_for_palindrome == cleaned_for_palindrome[::-1] if cleaned_for_palindrome else True
+    
+#     # Unique characters count
+#     unique_characters = len(set(cleaned_text))
+    
+#     # Word count (split by whitespace)
+#     word_count = len(cleaned_text.split())
+    
+#     # SHA256 hash
+#     sha256_hash = hashlib.sha256(cleaned_text.encode()).hexdigest()
+    
+#     # Character frequency map
+#     character_frequency_map = {}
+#     for char in cleaned_text:
+#         character_frequency_map[char] = character_frequency_map.get(char, 0) + 1
+
 def analyze_string(text: str) -> Dict[str, any]:
-    """Analyze a string and compute all required properties"""
-    if not isinstance(text, str):
-        raise ValueError("Input must be a string")
+    # length
+    length = len(text)
     
-    # Remove extra whitespace but preserve original for analysis
-    cleaned_text = text.strip()
+    # is_palindrome - case-insensitive
+    cleaned_for_palindrome = re.sub(r'[^a-zA-Z0-9]', '', text.lower())
+    is_palindrome = cleaned_for_palindrome == cleaned_for_palindrome[::-1]
     
-    # Compute properties
-    length = len(cleaned_text)
+    # unique_characters
+    unique_characters = len(set(text))
     
-    # Case-insensitive palindrome check (ignore spaces and special chars)
-    cleaned_for_palindrome = re.sub(r'[^a-zA-Z0-9]', '', cleaned_text.lower())
-    is_palindrome = cleaned_for_palindrome == cleaned_for_palindrome[::-1] if cleaned_for_palindrome else True
+    # word_count
+    word_count = len(text.split())
     
-    # Unique characters count
-    unique_characters = len(set(cleaned_text))
+    # sha256_hash
+    sha256_hash = hashlib.sha256(text.encode()).hexdigest()
     
-    # Word count (split by whitespace)
-    word_count = len(cleaned_text.split())
-    
-    # SHA256 hash
-    sha256_hash = hashlib.sha256(cleaned_text.encode()).hexdigest()
-    
-    # Character frequency map
+    # character_frequency_map
     character_frequency_map = {}
-    for char in cleaned_text:
+    for char in text:
         character_frequency_map[char] = character_frequency_map.get(char, 0) + 1
-    
+
     return {
         "length": length,
         "is_palindrome": is_palindrome,
@@ -48,16 +70,17 @@ def analyze_string(text: str) -> Dict[str, any]:
         "character_frequency_map": character_frequency_map
     }
 
+
 @app.post("/strings", status_code=status.HTTP_201_CREATED)
 async def create_analyze_string(request: dict):
     """
     Create and analyze a new string
     """
-    # Validate request body
+    # Validate request body exists and has 'value' field
     if not request or "value" not in request:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Missing 'value' field in request body"
+            detail="Invalid request body or missing 'value' field"
         )
     
     value = request["value"]
@@ -65,15 +88,22 @@ async def create_analyze_string(request: dict):
     # Validate data type
     if not isinstance(value, str):
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, 
             detail="Invalid data type for 'value' (must be string)"
+        )
+    
+    # Validate value is not empty string
+    if not value.strip():
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid request body or missing 'value' field"
         )
     
     # Check if string already exists
     if value in storage:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail=f"String '{value}' already exists in the system"
+            detail="String already exists in the system"
         )
     
     # Analyze string
@@ -91,7 +121,8 @@ async def create_analyze_string(request: dict):
     
     return result
 
-@app.get("/strings/{string_value}")
+
+@app.get("/strings/{string_value}", status_code=status.HTTP_200_OK)
 async def get_string(string_value: str):
     """
     Get analysis for a specific string
@@ -99,12 +130,69 @@ async def get_string(string_value: str):
     if string_value not in storage:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"String '{string_value}' does not exist in the system"
+            detail="String does not exist in the system"
         )
     
     return storage[string_value]
 
-@app.get("/strings")
+
+# @app.get("/strings")
+# async def get_all_strings(
+#     is_palindrome: Optional[bool] = Query(None, description="Filter by palindrome status"),
+#     min_length: Optional[int] = Query(None, ge=0, description="Minimum string length"),
+#     max_length: Optional[int] = Query(None, ge=0, description="Maximum string length"),
+#     word_count: Optional[int] = Query(None, ge=0, description="Exact word count"),
+#     contains_character: Optional[str] = Query(None, max_length=1, description="Single character to search for")
+# ):
+#     """
+#     Get all strings with optional filtering
+#     """
+#     filters = {}
+#     if is_palindrome is not None:
+#         filters['is_palindrome'] = is_palindrome
+#     if min_length is not None:
+#         filters['min_length'] = min_length
+#     if max_length is not None:
+#         filters['max_length'] = max_length
+#     if word_count is not None:
+#         filters['word_count'] = word_count
+#     if contains_character is not None:
+#         filters['contains_character'] = contains_character
+    
+#     filtered_strings = []
+    
+#     for analysis in storage.values():
+#         matches = True
+#         props = analysis["properties"]
+        
+#         if 'is_palindrome' in filters and props['is_palindrome'] != filters['is_palindrome']:
+#             matches = False
+            
+#         if 'min_length' in filters and props['length'] < filters['min_length']:
+#             matches = False
+            
+#         if 'max_length' in filters and props['length'] > filters['max_length']:
+#             matches = False
+            
+#         if 'word_count' in filters and props['word_count'] != filters['word_count']:
+#             matches = False
+            
+#         if 'contains_character' in filters:
+#             char = filters['contains_character']
+#             if char not in analysis["value"]:
+#                 matches = False
+        
+#         if matches:
+#             filtered_strings.append(analysis)
+    
+#     return {
+#         "data": filtered_strings,
+#         "count": len(filtered_strings),
+#         "filters_applied": filters
+#     }
+
+
+@app.get("/strings", status_code=status.HTTP_200_OK)
 async def get_all_strings(
     is_palindrome: Optional[bool] = Query(None, description="Filter by palindrome status"),
     min_length: Optional[int] = Query(None, ge=0, description="Minimum string length"),
@@ -115,51 +203,95 @@ async def get_all_strings(
     """
     Get all strings with optional filtering
     """
-    filters = {}
-    if is_palindrome is not None:
-        filters['is_palindrome'] = is_palindrome
-    if min_length is not None:
-        filters['min_length'] = min_length
-    if max_length is not None:
-        filters['max_length'] = max_length
-    if word_count is not None:
-        filters['word_count'] = word_count
-    if contains_character is not None:
-        filters['contains_character'] = contains_character
-    
-    filtered_strings = []
-    
-    for analysis in storage.values():
-        matches = True
-        props = analysis["properties"]
+    try:
+        # Validate query parameters
+        errors = []
         
-        if 'is_palindrome' in filters and props['is_palindrome'] != filters['is_palindrome']:
-            matches = False
+        # Validate min_length and max_length relationship
+        if min_length is not None and max_length is not None:
+            if min_length > max_length:
+                errors.append("min_length cannot be greater than max_length")
+        
+        # Validate contains_character is a single character
+        if contains_character is not None:
+            if len(contains_character) != 1:
+                errors.append("contains_character must be a single character")
+            elif not contains_character.isprintable():
+                errors.append("contains_character must be a printable character")
+        
+        # Validate word_count is reasonable
+        if word_count is not None and word_count > 1000:  # Arbitrary large limit
+            errors.append("word_count value is too large")
+        
+        # Validate length parameters are reasonable
+        if min_length is not None and min_length > 10000:  # Arbitrary large limit
+            errors.append("min_length value is too large")
+        
+        if max_length is not None and max_length > 10000:  # Arbitrary large limit
+            errors.append("max_length value is too large")
+        
+        # If there are validation errors, raise 400
+        if errors:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Invalid query parameter values or types"
+            )
+        
+        # Build filters dictionary
+        filters = {}
+        if is_palindrome is not None:
+            filters['is_palindrome'] = is_palindrome
+        if min_length is not None:
+            filters['min_length'] = min_length
+        if max_length is not None:
+            filters['max_length'] = max_length
+        if word_count is not None:
+            filters['word_count'] = word_count
+        if contains_character is not None:
+            filters['contains_character'] = contains_character
+        
+        # Apply filters
+        filtered_strings = []
+        
+        for analysis in storage.values():
+            matches = True
+            props = analysis["properties"]
             
-        if 'min_length' in filters and props['length'] < filters['min_length']:
-            matches = False
-            
-        if 'max_length' in filters and props['length'] > filters['max_length']:
-            matches = False
-            
-        if 'word_count' in filters and props['word_count'] != filters['word_count']:
-            matches = False
-            
-        if 'contains_character' in filters:
-            char = filters['contains_character']
-            if char not in analysis["value"]:
+            if 'is_palindrome' in filters and props['is_palindrome'] != filters['is_palindrome']:
                 matches = False
+                
+            if 'min_length' in filters and props['length'] < filters['min_length']:
+                matches = False
+                
+            if 'max_length' in filters and props['length'] > filters['max_length']:
+                matches = False
+                
+            if 'word_count' in filters and props['word_count'] != filters['word_count']:
+                matches = False
+                
+            if 'contains_character' in filters:
+                char = filters['contains_character']
+                if char not in analysis["value"]:
+                    matches = False
+            
+            if matches:
+                filtered_strings.append(analysis)
         
-        if matches:
-            filtered_strings.append(analysis)
-    
-    return {
-        "data": filtered_strings,
-        "count": len(filtered_strings),
-        "filters_applied": filters
-    }
+        return {
+            "data": filtered_strings,
+            "count": len(filtered_strings),
+            "filters_applied": filters
+        }
+        
+    except ValueError as e:
+        # This will catch any FastAPI validation errors for query parameters
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid query parameter values or types"
+        )
 
-@app.get("/strings/filter-by-natural-language")
+
+@app.get("/strings/filter-by-natural-language", status_code=status.HTTP_200_OK)
 async def filter_by_natural_language(query: str = Query(..., description="Natural language query")):
     """
     Filter strings using natural language queries
@@ -213,7 +345,7 @@ async def filter_by_natural_language(query: str = Query(..., description="Natura
         parsed_filters['min_length'] > parsed_filters['max_length']):
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Conflicting filters: min_length cannot be greater than max_length"
+            detail="Query parsed but resulted in conflicting filters"
         )
     
     # Apply filters
@@ -259,14 +391,14 @@ async def delete_string(string_value: str):
     if string_value not in storage:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"String '{string_value}' does not exist in the system"
+            detail="String does not exist in the system"
         )
     
     del storage[string_value]
 
-@app.get("/")
-async def root():
-    return {"message": "String Analyzer Service is running"}
+# @app.get("/")
+# async def root():
+#     return {"message": "String Analyzer Service is running"}
 
 
 # if __name__ == "__main__":
